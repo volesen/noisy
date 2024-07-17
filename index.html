@@ -8,7 +8,10 @@
         <div id="myplot"></div>
         <script type="module">
             import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6/+esm";
-            let data = {};
+            let data = {
+                sensor4_neighbour: 0,
+                bar: 0,
+            };
 
             const SENSOR_TO_COORD = {
                 sensor4_neighbour: [1000, 1260],
