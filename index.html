@@ -1,97 +1,109 @@
 <!doctype html>
-<div id="myplot"></div>
-<script type="module">
-    import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6/+esm";
+<html lang="en">
+    <head>
+        <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    </head>
 
-    const webSocket = new WebSocket("ws://151.216.39.60:8000");
+    <body>
+        <div id="myplot"></div>
+        <script type="module">
+            import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6/+esm";
+            let data = {};
 
-    const SENSOR_TO_COORD = {
-        "/noisesensors/partycamping": [1000, 1260],
-        "/noisesensors/bar": [1015, 1515],
-    };
+            const SENSOR_TO_COORD = {
+                sensor4_neighbour: [1000, 1260],
+                bar: [1015, 1515],
+            };
 
-    let data = {
-        "/noisesensors/partycamping": 400,
-        "/noisesensors/bar": 700,
-    };
+            const drawPlot = (data) => {
+                const plot = Plot.plot({
+                    width: 2000,
+                    height: 2444,
+                    x: { domain: [0, 2000] },
+                    y: { domain: [0, 2444] },
+                    marks: [
+                        Plot.image(
+                            [
+                                {
+                                    url: "https://people.bornhack.org/flummer/map2024/map_areas_small.jpg?rev=4.0",
+                                },
+                            ],
+                            {
+                                frameAnchor: "middle",
+                                src: "url",
+                                width: 2000,
+                                height: 2444,
+                            },
+                        ),
+                        Plot.density(
+                            Object.entries(data).map(([location, value]) => {
+                                const [x, y] = SENSOR_TO_COORD[location];
 
-    const drawPlot = (data) => {
-        const plot = Plot.plot({
-            width: 2000,
-            height: 2444,
-            x: { domain: [0, 2000] },
-            y: { domain: [0, 2444] },
-            marks: [
-                Plot.image(
-                    [
-                        {
-                            url: "https://people.bornhack.org/flummer/map2024/map_areas_small.jpg?rev=4.0",
-                        },
+                                return { x, y, value };
+                            }),
+                            {
+                                x: "x",
+                                y: "y",
+                                bandwidth: 75,
+                                weight: (d) => d.value / 1024,
+                                fill: "density",
+                                fillOpacity: 0.1,
+                            },
+                        ),
+
+                        Plot.text(
+                            Object.entries(data).map(([location, value]) => {
+                                const [x, y] = SENSOR_TO_COORD[location];
+
+                                // Remove `/noisesensor/` prefix
+
+                                return {
+                                    x,
+                                    y,
+                                    text: `${location}: ${Math.round((value / 1024) * 100)}%`,
+                                };
+                            }),
+                            {
+                                x: "x",
+                                y: "y",
+                                text: "text",
+                                fontSize: 20,
+                                // dy: 10,
+                                // dx: 10,
+                            },
+                        ),
                     ],
-                    {
-                        frameAnchor: "middle",
-                        src: "url",
-                        width: 2000,
-                        height: 2444,
-                    },
-                ),
-                Plot.density(
-                    Object.entries(data).map(([sensor, value]) => {
-                        const [x, y] = SENSOR_TO_COORD[sensor];
+                });
 
-                        return { x, y, value };
-                    }),
-                    {
-                        x: "x",
-                        y: "y",
-                        bandwidth: 75,
-                        weight: (d) => d.value / 1024,
-                        fill: "density",
-                        fillOpacity: 0.1,
-                    },
-                ),
+                const div = document.querySelector("#myplot");
+                div.innerHTML = "";
+                div.appendChild(plot);
+            };
 
-                Plot.text(
-                    Object.entries(data).map(([sensor, value]) => {
-                        const [x, y] = SENSOR_TO_COORD[sensor];
+            drawPlot(data);
 
-                        // Remove `/noisesensor/` prefix
-                        const location = sensor.split("/")[2];
+            const client = mqtt.connect("wss://mqtt.deillegaleshow.nl:9001");
 
-                        return {
-                            x,
-                            y,
-                            text: `${location}: ${Math.round((value / 1024) * 100)}%`,
-                        };
-                    }),
-                    {
-                        x: "x",
-                        y: "y",
-                        text: "text",
-                        fontSize: 20,
-                        // dy: 10,
-                        // dx: 10,
-                    },
-                ),
-            ],
-        });
+            client.on("connect", () => {
+                client.subscribe("/noisesensors/#", (err) => {
+                    if (!err) {
+                        console.log("subscribed!");
+                    }
+                });
+            });
 
-        const div = document.querySelector("#myplot");
-        div.innerHTML = "";
-        div.appendChild(plot);
-    };
+            client.on("message", (topic, message) => {
+                // message is Buffer
+                const location = topic.toString().split("/")[2];
 
-    drawPlot(data);
+                const values = JSON.parse(message.toString());
 
-    webSocket.onmessage = (event) => {
-        console.log(event.data);
+                const avg = values.avg;
 
-        const sensorData = JSON.parse(event.data);
+                data[location] = avg;
 
-        data[sensorData.sensor] = sensorData.avg;
-
-        console.log(data);
-
-        drawPlot(data);
-    };
-</script>
+                drawPlot(data);
+            });
+        </script>
+    </body>
+</html>
