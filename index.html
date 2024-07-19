@@ -8,14 +8,24 @@
         <div id="myplot"></div>
         <script type="module">
             import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6/+esm";
+
+            // Hack, but we add a out-of-bounds location to set the domain
             let data = {
-                sensor4_neighbour: 0,
+                hack: 1024,
+                partycamping: 0,
                 bar: 0,
+                sensor2_orga_area: 0,
+                sensor3_speakertent: 0,
+                sensor4_neighbour: 0,
             };
 
             const SENSOR_TO_COORD = {
-                sensor4_neighbour: [1000, 1260],
+                hack: [-100, -100],
                 bar: [1015, 1515],
+                partycamping: [1000, 1260],
+                sensor2_orga_area: [900, 1650],
+                sensor3_speakertent: [650, 1700],
+                sensor4_neighbour: [-100, -100],
             };
 
             const drawPlot = (data) => {
@@ -47,8 +57,8 @@
                             {
                                 x: "x",
                                 y: "y",
-                                bandwidth: 75,
-                                weight: (d) => d.value / 1024,
+                                bandwidth: 50,
+                                weight: "value",
                                 fill: "density",
                                 fillOpacity: 0.1,
                             },
@@ -57,8 +67,6 @@
                         Plot.text(
                             Object.entries(data).map(([location, value]) => {
                                 const [x, y] = SENSOR_TO_COORD[location];
-
-                                // Remove `/noisesensor/` prefix
 
                                 return {
                                     x,
@@ -71,8 +79,6 @@
                                 y: "y",
                                 text: "text",
                                 fontSize: 20,
-                                // dy: 10,
-                                // dx: 10,
                             },
                         ),
                     ],
@@ -104,6 +110,8 @@
                 const avg = values.avg;
 
                 data[location] = avg;
+
+                console.log(data);
 
                 drawPlot(data);
             });
